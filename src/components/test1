@@ -1,0 +1,194 @@
+import React, { useState, useRef, useEffect } from 'react';
+import Janus from 'janus-gateway';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
+const AudioConference = () => {
+  const [janus, setJanus] = useState(null);
+  const [pluginHandle, setPluginHandle] = useState(null);
+  const [webrtcUp, setWebrtcUp] = useState(false);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [myId, setMyId] = useState(null);
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [audioSuspended, setAudioSuspended] = useState(false);
+  const [myRoom, setMyRoom] = useState('1234');
+  const pluginHandleRef = useRef(null);
+
+  useEffect(() => {
+    if (!janus) {
+      Janus.init({
+        debug: 'all',
+        callback: () => {
+          const janusInstance = new Janus({
+            server: 'http://your-janus-server',
+            success: () => {
+              setJanus(janusInstance);
+              janusInstance.attach({
+                plugin: 'janus.plugin.audiobridge',
+                success: (plugin) => {
+                  setPluginHandle(plugin);
+                  pluginHandleRef.current = plugin;
+                  plugin.send({ message: { request: 'join', room: myRoom, display: 'Your Name' } });
+                },
+                onmessage: (msg, jsep) => {
+                  Janus.debug(' ::: Got a message :::', msg);
+                  let event = msg['audiobridge'];
+                  if (event) {
+                    if (event === 'joined') {
+                      if (msg['id']) {
+                        setMyId(msg['id']);
+                        if (!webrtcUp) {
+                          setWebrtcUp(true);
+                          plugin.createOffer({
+                            media: { audio: true, video: false, data: false },
+                            success: (jsep) => {
+                              let publish = { request: 'configure', muted: false };
+                              plugin.send({ message: publish, jsep: jsep });
+                            },
+                            error: (error) => {
+                              console.error('WebRTC error:', error);
+                            }
+                          });
+                        }
+                      }
+                      if (msg['participants']) {
+                        updateParticipantsList(msg['participants']);
+                      }
+                    } else if (event === 'roomchanged') {
+                      setMyId(msg['id']);
+                      updateParticipantsList(msg['participants']);
+                    } else if (event === 'destroyed') {
+                      console.warn('The room has been destroyed!');
+                      window.location.reload();
+                    } else if (event === 'event') {
+                      if (msg['participants']) {
+                        updateParticipantsList(msg['participants']);
+                      } else if (msg['leaving']) {
+                        handleParticipantLeaving(msg['leaving']);
+                      }
+                    }
+                  }
+                  if (jsep) {
+                    plugin.handleRemoteJsep({ jsep: jsep });
+                  }
+                },
+                onlocaltrack: (track, on) => {
+                  console.debug('Local track', on ? 'added' : 'removed', ':', track);
+                  if (on) {
+                    document.getElementById('audiojoin').classList.add('hide');
+                    document.getElementById('room').classList.remove('hide');
+                  }
+                },
+                onremotetrack: (track, mid, on) => {
+                  if (track.kind === 'audio') {
+                    if (on) {
+                      setRemoteStream(new MediaStream([track]));
+                      if (document.getElementById('roomaudio') === null) {
+                        document.getElementById('mixedaudio').innerHTML = '<audio id="roomaudio" controls autoplay/>';
+                      }
+                      Janus.attachMediaStream(document.getElementById('roomaudio'), remoteStream);
+                    } else {
+                      setRemoteStream(null);
+                      document.getElementById('roomaudio')?.remove();
+                    }
+                  }
+                },
+                oncleanup: () => {
+                  setWebrtcUp(false);
+                  document.getElementById('participant')?.classList.add('hide');
+                  document.getElementById('list')?.innerHTML = '';
+                  document.getElementById('mixedaudio')?.innerHTML = '';
+                  document.getElementById('room')?.classList.add('hide');
+                }
+              });
+            },
+            error: (error) => {
+              console.error('Janus error:', error);
+            },
+            destroyed: () => {
+              console.log('Janus session destroyed');
+            }
+          });
+        }
+      });
+    }
+
+    return () => {
+      janus?.destroy();
+    };
+  }, [janus]);
+
+  const updateParticipantsList = (participants) => {
+    const list = document.getElementById('list');
+    list.innerHTML = '';
+    participants.forEach(participant => {
+      const { id, display, setup, muted, suspended, spatial_position } = participant;
+      let slider = '';
+      if (spatial_position !== null && spatial_position !== undefined) {
+        slider = `<span>[L <input id="sp${id}" type="text" style="width: 10%;"/> R] </span>`;
+      }
+      const item = document.createElement('li');
+      item.id = `rp${id}`;
+      item.className = 'list-group-item';
+      item.innerHTML = `${slider}${display} <i class="absetup fa-solid fa-link-slash" title="No PeerConnection"></i>
+        <i class="absusp fa-solid fa-eye-slash" title="Suspended"></i>
+        <i class="abmuted fa-solid fa-microphone-slash" title="Muted"></i>`;
+      list.appendChild(item);
+      if (setup) document.getElementById(`rp${id}`).querySelector('i.absetup').classList.add('hide');
+      if (muted) document.getElementById(`rp${id}`).querySelector('i.abmuted').classList.remove('hide');
+      if (suspended) document.getElementById(`rp${id}`).querySelector('i.absusp').classList.remove('hide');
+      if (spatial_position !== null && spatial_position !== undefined) {
+        const sliderElement = document.getElementById(`sp${id}`);
+        sliderElement.value = spatial_position;
+      }
+    });
+  };
+
+  const handleParticipantLeaving = (leavingId) => {
+    const participantElement = document.getElementById(`rp${leavingId}`);
+    if (participantElement) {
+      participantElement.remove();
+    }
+  };
+
+  const toggleAudio = () => {
+    setAudioEnabled(!audioEnabled);
+    pluginHandle.send({ message: { request: 'configure', muted: !audioEnabled } });
+  };
+
+  const toggleSuspend = () => {
+    setAudioSuspended(!audioSuspended);
+    pluginHandle.send({ message: { request: audioSuspended ? 'resume' : 'suspend', room: myRoom, id: myId } });
+  };
+
+  const leaveRoom = () => {
+    pluginHandle.send({ message: { request: 'leave' } });
+    janus.destroy();
+  };
+
+  return (
+    <div>
+      <div id="audiojoin">
+        <button onClick={() => pluginHandle.send({ message: { request: 'join', room: myRoom, display: 'Your Name' } })}>
+          Join Room
+        </button>
+      </div>
+      <div id="room" className="hide">
+        <h3>Room</h3>
+        <div id="mixedaudio"></div>
+        <div id="participant" className="hide"></div>
+        <ul id="list" className="list-group"></ul>
+        <button onClick={toggleAudio} className={`btn ${audioEnabled ? 'btn-danger' : 'btn-success'}`}>
+          {audioEnabled ? 'Mute' : 'Unmute'}
+        </button>
+        <button onClick={toggleSuspend} className={`btn ${audioSuspended ? 'btn-info' : 'btn-secondary'}`}>
+          {audioSuspended ? 'Resume' : 'Suspend'}
+        </button>
+        <button onClick={leaveRoom} className="btn btn-danger">
+          Leave Room
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default AudioConference;

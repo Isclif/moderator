@@ -81,7 +81,7 @@ const ChatBubble = ({ message, isSender, profilePic, name, time }) => {
 // ];
 // w-[325px]
   return (
-    <aside className="p-4 bg-gray-100 rounded-lg h-[502px]">
+    <aside className="p-4 bg-gray-100 rounded-lg">
       <span className="flex justify-between pt-2">
         <h2 className={`${openMessageriePrivee ? "text-base font-bold mb-4 text-black cursor-pointer" : "text-base  mb-4 text-gray-600 cursor-pointer"}`} onClick={handleOpenPrivate}>Private</h2>
         <h2 className={`${openMessageriePublic ? "text-base font-bold mb-4 text-black cursor-pointer" : "text-base  mb-4 text-gray-600 cursor-pointer"}`} onClick={handleOpenPublic}>Public</h2>      

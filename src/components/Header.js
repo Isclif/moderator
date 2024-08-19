@@ -1,7 +1,7 @@
 import React from "react"
 import { MenuOutlined, VideoCameraFilled, PauseOutlined, XFilled } from "@ant-design/icons";
 
-const Header = (props) => {
+const Header = ({endRoom}) => {
   return (
     <header className="relative flex justify-between items-center p-1 bg-gray-800 text-white bg-transparent">
       <div>
@@ -39,8 +39,8 @@ const Header = (props) => {
         </span>
         End Meeting
       </button> */}
-      <div class="mr-2">
-          <button class="bg-red-500 text-white-400 py-2 px-4 rounded-lg text-xs">
+      <div className="mr-2">
+          <button className="bg-red-500 text-white-400 py-2 px-4 rounded-lg text-xs" onClick={() => endRoom()}>
             End Meeting
           </button>
           {/* <span class="absolute top-0 right-0 -mt-1 -mr-1 flex h-3 w-3">

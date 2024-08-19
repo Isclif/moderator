@@ -59,3 +59,7 @@
 .message-box1 {
   border-top-right-radius: 0; /* Specific rounded corner */
 }
+
+.hide {
+	display: none !important;
+}

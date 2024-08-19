@@ -17,8 +17,11 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "adapterjs": "^0.15.5",
     "ajv": "^8.16.0",
     "cors": "^2.8.5",
+    "janode": "^1.7.1",
+    "janus-gateway": "^1.2.3-1",
     "material-ui": "^0.20.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -28,7 +31,8 @@
     "simple-peer": "^9.11.1",
     "socket.io-client": "^4.7.5",
     "twilio-video": "^2.28.1",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "webrtc-adapter": "^9.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
